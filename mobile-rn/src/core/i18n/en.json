@@ -1,0 +1,7 @@
+{
+  "appName": "Brailliants",
+  "tagline": "Learn anywhere. No internet required.",
+  "home": "Home", "learn": "Learn", "resources": "Resources", "forum": "Forum", "profile": "Profile",
+  "login": "Log in", "register": "Create account", "email": "Email", "password": "Password",
+  "retry": "Try again", "loading": "Loading...", "noContent": "Nothing here yet.", "error": "Something went wrong."
+}

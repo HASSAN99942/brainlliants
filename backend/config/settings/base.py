@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+
+from django.core.exceptions import ImproperlyConfigured  # noqa: F401  (used by production.py)
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -55,6 +57,10 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # Serves collected static files in production; Render does not serve them
+    # for you and Django only does so with DEBUG=True. Must sit directly after
+    # SecurityMiddleware.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -96,12 +102,32 @@ DATABASES = {
     }
 }
 
+# Managed hosts (Render, Heroku, Railway…) hand out one connection string
+# instead of the discrete DB_* parts above. When present it wins.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        # Render's managed Postgres requires TLS.
+        ssl_require=os.environ.get('DB_SSL_REQUIRE', 'True') == 'True',
+    )
+
+# Redis backs both the WebSocket channel layer and Celery. Managed Redis is
+# given as a single URL (often rediss:// with credentials), which the old
+# host+port pair could not express.
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL:
+    CHANNEL_LAYER_HOSTS = [REDIS_URL]
+else:
+    CHANNEL_LAYER_HOSTS = [(os.environ.get('REDIS_HOST', '127.0.0.1'),
+                            int(os.environ.get('REDIS_PORT', 6379)))]
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [(os.environ.get('REDIS_HOST', '127.0.0.1'), 6379)],
-        },
+        'CONFIG': {'hosts': CHANNEL_LAYER_HOSTS},
     }
 }
 
@@ -150,8 +176,9 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER', 'redis://127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_BACKEND', 'redis://127.0.0.1:6379/0')
+_CELERY_DEFAULT = REDIS_URL or 'redis://127.0.0.1:6379/0'
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER', _CELERY_DEFAULT)
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_BACKEND', _CELERY_DEFAULT)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LANGUAGE_CODE = 'en-us'
@@ -164,6 +191,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        # Compresses and fingerprints collected static files.
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
 DEFAULT_FROM_EMAIL = 'noreply@brailliants.cm'
 
 # External services — read from .env
@@ -172,6 +207,12 @@ CAMPAY_USERNAME  = os.environ.get('CAMPAY_USERNAME', '')
 CAMPAY_PASSWORD  = os.environ.get('CAMPAY_PASSWORD', '')
 CAMPAY_BASE_URL  = os.environ.get('CAMPAY_BASE_URL', 'https://demo.campay.net/api/')
 FCM_SERVER_KEY   = os.environ.get('FCM_SERVER_KEY', '')
+
+# Feature flags — must stay in sync with mobile-rn/src/core/config/features.ts.
+# While PAYMENTS_ENABLED is false there is no way for a user to upgrade, so the
+# freemium caps are lifted (everyone is treated as unlimited) instead of walling
+# users in. The paywall and the limits switch back on together.
+PAYMENTS_ENABLED = os.environ.get('PAYMENTS_ENABLED', 'false').lower() == 'true'
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Brailliants API',

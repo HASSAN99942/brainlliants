@@ -4,6 +4,10 @@ DEBUG = True
 CORS_ALLOW_ALL_ORIGINS = True
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Dev only: allow any Host header so a physical device (Expo Go over LAN/hotspot)
+# can reach the server via the PC's LAN IP, not just localhost.
+ALLOWED_HOSTS = ['*']
+
 # ---------------------------------------------------------------------------
 # Local-dev database fallback.
 #

@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q, F
 from rest_framework import status
 from rest_framework.views import APIView
@@ -17,11 +18,43 @@ class ForumPagination(PageNumberPagination):
     page_size = 20
 
 
+VALID_SCOPES = {'general', 'exam', 'specialty'}
+
+
 class ForumPostListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = ForumPost.objects.select_related('author').all().order_by('-created_at')
+        qs = (
+            ForumPost.objects
+            .select_related('author', 'scope_specialty')
+            .all()
+            .order_by('-created_at')
+        )
+
+        scope = request.query_params.get('scope', 'general')
+        if scope not in VALID_SCOPES:
+            return Response({'error': f'scope must be one of {sorted(VALID_SCOPES)}.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if scope == 'general':
+            qs = qs.filter(scope='general')
+        elif scope == 'exam':
+            exam = request.query_params.get('exam') or request.user.exam_level
+            if not exam:
+                return self._empty(request)
+            qs = qs.filter(scope='exam', scope_exam=exam)
+        else:
+            specialty = request.query_params.get('specialty') or request.user.specialty_ref_id
+            if not specialty:
+                # The student typed their specialty by hand, so there is no room
+                # to point at. An empty page beats matching orphaned posts.
+                return self._empty(request)
+            try:
+                qs = qs.filter(scope='specialty', scope_specialty_id=specialty)
+            except (DjangoValidationError, ValueError):
+                return Response({'error': 'Invalid specialty.'}, status=status.HTTP_400_BAD_REQUEST)
+
         status_filter = request.query_params.get('filter')
         if status_filter == 'resolved':
             qs = qs.filter(is_resolved=True)
@@ -36,10 +69,51 @@ class ForumPostListView(APIView):
         serializer = ForumPostListSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
+    @staticmethod
+    def _empty(request):
+        """A well-formed empty page, so the client renders its empty state."""
+        paginator = ForumPagination()
+        paginator.paginate_queryset(ForumPost.objects.none(), request)
+        return paginator.get_paginated_response([])
+
     def post(self, request):
+        scope = request.data.get('scope', 'general')
+        if scope not in VALID_SCOPES:
+            return Response({'error': f'scope must be one of {sorted(VALID_SCOPES)}.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        extra = {}
+
+        if scope == 'exam':
+            if not user.exam_level:
+                return Response(
+                    {'error': 'Set your exam level in your profile before posting here.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            requested = request.data.get('scope_exam')
+            if requested and str(requested) != str(user.exam_level):
+                return Response({'error': 'You can only post in your own exam forum.'},
+                                status=status.HTTP_403_FORBIDDEN)
+            extra['scope_exam'] = user.exam_level
+
+        elif scope == 'specialty':
+            if not user.specialty_ref_id:
+                return Response(
+                    {'error': 'Pick your specialty from the list in your profile before posting here.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            requested = request.data.get('scope_specialty')
+            if requested and str(requested) != str(user.specialty_ref_id):
+                return Response({'error': 'You can only post in your own specialty forum.'},
+                                status=status.HTTP_403_FORBIDDEN)
+            extra['scope_specialty_id'] = user.specialty_ref_id
+
         serializer = CreatePostSerializer(data=request.data)
         if serializer.is_valid():
-            post = serializer.save(author=request.user)
+            # scope_exam / scope_specialty always come from the profile, never
+            # from the payload, so a post cannot be planted in another room.
+            post = serializer.save(author=request.user, scope=scope, **extra)
             generate_ai_answer_async(post.id)
             return Response(
                 ForumPostListSerializer(post, context={'request': request}).data,

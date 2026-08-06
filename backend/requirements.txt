@@ -18,3 +18,7 @@ drf-spectacular==0.27.*
 google-generativeai==0.7.*
 requests==2.31.*
 gunicorn==22.*
+# Deployment: managed hosts hand out a single DATABASE_URL, and Django will not
+# serve static files itself with DEBUG=False.
+dj-database-url==2.*
+whitenoise==6.*

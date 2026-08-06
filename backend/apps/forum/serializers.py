@@ -38,11 +38,17 @@ class ForumReplySerializer(serializers.ModelSerializer):
 
 class ForumPostListSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
+    scope_specialty_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ForumPost
         fields = ['id', 'author', 'title', 'body', 'ai_answer',
-                  'view_count', 'reply_count', 'is_resolved', 'created_at']
+                  'view_count', 'reply_count', 'is_resolved',
+                  'scope', 'scope_exam', 'scope_specialty', 'scope_specialty_name',
+                  'created_at']
+
+    def get_scope_specialty_name(self, obj):
+        return obj.scope_specialty.name if obj.scope_specialty_id else None
 
 
 class ForumPostDetailSerializer(ForumPostListSerializer):

@@ -1,18 +1,37 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Question, Note, Bookmark, DownloadLog
+from .models import Question, Note, Bookmark, DownloadLog, Specialty
 from .serializers import (
     QuestionListSerializer, QuestionDetailSerializer,
-    NoteSerializer, BookmarkSerializer,
+    NoteSerializer, BookmarkSerializer, SpecialtySerializer,
 )
 from .services.freemium_service import can_download, get_download_info
 from .services.access_service import visible_content_filter
+from .services.content_filter import papers_for_user, papers_by_specialty
+
+
+def apply_specialty_scope(qs, request):
+    """Narrow a paper queryset by ?scope= and ?specialty=.
+
+    scope='mine' (the default) uses the student's own specialty; passing an
+    explicit ?specialty= always wins, which is what the browse explorer does.
+    """
+    scope = request.query_params.get('scope', 'mine')
+    specialty_id = request.query_params.get('specialty')
+    exam = request.query_params.get('exam') or request.query_params.get('exam_type')
+
+    if specialty_id:
+        return papers_by_specialty(qs, specialty_id, exam)
+    if scope == 'mine':
+        return papers_for_user(qs, request.user)
+    return qs
 
 
 class ContentPagination(PageNumberPagination):
@@ -29,7 +48,10 @@ def apply_common_filters(qs, request):
     field_names = {f.name for f in qs.model._meta.get_fields()}
     has_year = 'year' in field_names
 
-    for field in ['exam_type', 'subject', 'specialty', 'language']:
+    # NB: `specialty` is deliberately absent. Since the catalogue landed it means
+    # a Specialty id, handled by apply_specialty_scope(); matching it against the
+    # legacy free-text `specialty` column here would silently return nothing.
+    for field in ['exam_type', 'subject', 'language']:
         value = params.get(field)
         if value:
             qs = qs.filter(**{f'{field}__iexact': value})
@@ -48,11 +70,121 @@ def apply_common_filters(qs, request):
     return qs
 
 
+class SpecialtyListView(APIView):
+    """GET /api/content/specialties/?subsystem=&exam=
+
+    AllowAny: the registration screen needs this before the user has a token.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = Specialty.objects.all()
+
+        subsystem = request.query_params.get('subsystem')
+        if subsystem:
+            # 'bilingual' rows (the national concours) belong to both subsystems.
+            qs = qs.filter(Q(subsystem=subsystem) | Q(subsystem='bilingual'))
+
+        exam = request.query_params.get('exam')
+        if exam:
+            # exam_levels is a JSON list; filter in Python so the behaviour is
+            # identical on SQLite and PostgreSQL (JSON containment lookups are
+            # not portable). The catalogue is small enough for this to be free.
+            rows = [s for s in qs if exam in (s.exam_levels or [])]
+        else:
+            rows = list(qs)
+
+        return Response(SpecialtySerializer(rows, many=True).data)
+
+
+def _subsystem_exams(subsystem):
+    """Exam codes the catalogue lists for a subsystem (bilingual counts for both)."""
+    rows = Specialty.objects.filter(Q(subsystem=subsystem) | Q(subsystem='bilingual'))
+    codes = set()
+    for row in rows:
+        codes.update(row.exam_levels or [])
+    return codes
+
+
+class BrowseExamsView(APIView):
+    """GET /api/content/browse/exams/?subsystem= — exams that actually have papers."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        subsystem = request.query_params.get('subsystem')
+        if not subsystem:
+            return Response({'error': 'subsystem is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Go through exam_type rather than the M2M, so untagged and general
+        # papers still put their exam on the map.
+        allowed = _subsystem_exams(subsystem)
+        exams = (
+            Question.objects
+            .filter(visible_content_filter(request.user))
+            .filter(exam_type__in=allowed)
+            .values_list('exam_type', flat=True)
+            .distinct()
+        )
+        return Response(sorted(set(exams)))
+
+
+class BrowseSpecialtiesView(APIView):
+    """GET /api/content/browse/specialties/?subsystem=&exam= — those with papers."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        subsystem = request.query_params.get('subsystem')
+        exam = request.query_params.get('exam')
+        if not subsystem or not exam:
+            return Response({'error': 'subsystem and exam are required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        catalogue = [
+            s for s in Specialty.objects.filter(Q(subsystem=subsystem) | Q(subsystem='bilingual'))
+            if exam in (s.exam_levels or [])
+        ]
+
+        visible = Question.objects.filter(visible_content_filter(request.user))
+
+        # A general paper belongs to every specialty of its exam, so if one
+        # exists the whole list is reachable.
+        if visible.filter(is_general=True, exam_type=exam).exists():
+            return Response(SpecialtySerializer(catalogue, many=True).data)
+
+        tagged = set(
+            visible.filter(specialties__in=catalogue)
+            .values_list('specialties__id', flat=True)
+        )
+        rows = [s for s in catalogue if s.id in tagged]
+        return Response(SpecialtySerializer(rows, many=True).data)
+
+
+class BrowseYearsView(APIView):
+    """GET /api/content/browse/years/?specialty=&exam= — years with papers."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        specialty_id = request.query_params.get('specialty')
+        exam = request.query_params.get('exam')
+        if not specialty_id:
+            return Response({'error': 'specialty is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = Question.objects.filter(visible_content_filter(request.user))
+        try:
+            qs = papers_by_specialty(qs, specialty_id, exam)
+        except (DjangoValidationError, ValueError):
+            return Response({'error': 'Invalid specialty.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        years = qs.exclude(year__isnull=True).values_list('year', flat=True).distinct()
+        return Response(sorted(set(years), reverse=True))
+
+
 class QuestionListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         qs = Question.objects.filter(visible_content_filter(request.user))
+        qs = apply_specialty_scope(qs, request)
         qs = apply_common_filters(qs, request)
         paginator = ContentPagination()
         page = paginator.paginate_queryset(qs, request)
@@ -109,6 +241,7 @@ class NoteListView(APIView):
 
     def get(self, request):
         qs = Note.objects.filter(visible_content_filter(request.user))
+        qs = apply_specialty_scope(qs, request)
         qs = apply_common_filters(qs, request)
         paginator = ContentPagination()
         page = paginator.paginate_queryset(qs, request)

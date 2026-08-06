@@ -2,6 +2,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('specialties/', views.SpecialtyListView.as_view()),
+    path('browse/exams/', views.BrowseExamsView.as_view()),
+    path('browse/specialties/', views.BrowseSpecialtiesView.as_view()),
+    path('browse/years/', views.BrowseYearsView.as_view()),
     path('questions/', views.QuestionListView.as_view()),
     path('questions/<uuid:pk>/', views.QuestionDetailView.as_view()),
     path('questions/<uuid:pk>/download/', views.QuestionDownloadView.as_view()),

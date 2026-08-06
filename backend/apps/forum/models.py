@@ -12,12 +12,26 @@ class ForumPost(models.Model):
     view_count  = models.IntegerField(default=0)
     reply_count = models.IntegerField(default=0)
     is_resolved = models.BooleanField(default=False)
+
+    # Which room the post lives in. Existing posts stay 'general', so the
+    # app-wide forum is unchanged.
+    SCOPE_CHOICES = [('general', 'General'), ('exam', 'Exam'), ('specialty', 'Specialty')]
+    scope           = models.CharField(max_length=12, choices=SCOPE_CHOICES, default='general')
+    scope_exam      = models.CharField(max_length=20, blank=True)   # set when scope='exam'
+    scope_specialty = models.ForeignKey(
+        'content.Specialty', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='forum_posts',
+    )
+
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'forum_posts'
-        indexes = [models.Index(fields=['-created_at'])]
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['scope', 'scope_exam']),
+        ]
 
 
 class ForumReply(models.Model):

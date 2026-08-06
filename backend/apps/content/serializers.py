@@ -1,5 +1,14 @@
 from rest_framework import serializers
-from .models import Question, Note, Bookmark
+from .models import Question, Note, Bookmark, Specialty
+
+
+class SpecialtySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Specialty
+        fields = [
+            'id', 'code', 'name', 'abbreviation', 'subsystem',
+            'exam_levels', 'category', 'is_general',
+        ]
 
 
 class QuestionListSerializer(serializers.ModelSerializer):

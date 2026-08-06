@@ -7,13 +7,15 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 ///  - Android emulator maps the host machine's localhost to 10.0.2.2.
 /// The Django backend mounts everything under /api/ (see config/urls.py).
 class ApiConstants {
-  static final String baseUrl =
-      kIsWeb ? 'http://127.0.0.1:8000/api' : 'http://10.0.2.2:8000/api';
+  static final String baseUrl = kIsWeb
+      ? 'http://127.0.0.1:8000/api'
+      : 'http://10.0.2.2:8000/api';
 
   /// WebSocket origin (no /api prefix — Channels routes live at the root).
   /// Web/desktop hit 127.0.0.1; the Android emulator maps host localhost to 10.0.2.2.
-  static final String wsBase =
-      kIsWeb ? 'ws://127.0.0.1:8000' : 'ws://10.0.2.2:8000';
+  static final String wsBase = kIsWeb
+      ? 'ws://127.0.0.1:8000'
+      : 'ws://10.0.2.2:8000';
 
   // Auth (apps/accounts/urls.py, mounted at /api/auth/)
   static const String register = '/auth/register/student/';

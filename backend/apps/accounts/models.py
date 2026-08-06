@@ -26,15 +26,48 @@ class User(AbstractBaseUser, PermissionsMixin):
     SUBSYSTEM_CHOICES = [('anglophone', 'Anglophone'), ('francophone', 'Francophone')]
     subsystem = models.CharField(max_length=20, choices=SUBSYSTEM_CHOICES, null=True, blank=True)
 
+    # Keep in sync with EXAM_CHOICES in apps/content/models.py.
     EXAM_CHOICES = [
+        # Anglophone — general secondary
         ('GCE_OL', 'GCE O/L'), ('GCE_AL', 'GCE A/L'),
-        ('BAC_A', 'BAC A'), ('BAC_C', 'BAC C'), ('BAC_D', 'BAC D'),
-        ('BAC_E', 'BAC E'), ('BAC_TECH', 'BAC Technique'),
-        ('BEPC', 'BEPC'), ('PROBATOIRE', 'Probatoire'),
-        ('HND', 'HND'), ('CEP', 'CEP'),
+        # Anglophone — technical & vocational secondary
+        ('GCE_TVE_OL', 'GCE TVE Intermediate Level'),
+        ('GCE_TVE_AL', 'GCE TVE Advanced Level'),
+        # Anglophone — higher
+        ('HND', 'HND'),
+        # Francophone — general secondary
+        ('CEP', 'CEP'), ('BEPC', 'BEPC'),
+        ('PROBATOIRE', 'Probatoire Général'),
+        ('BAC_GEN', 'Baccalauréat Général'),
+        # Francophone — technical & tertiary secondary
+        ('CAP', 'CAP'),
+        ('PROBATOIRE_TECH', 'Probatoire Technique / STT'),
+        ('BAC_TECH', 'Baccalauréat Technique & BT'),
+        # Francophone — higher
+        ('BTS', 'BTS'),
+        # National competitive entrance exams (concours)
+        ('CONCOURS_ENSP', 'Concours ENSP / Polytechnique'),
+        ('CONCOURS_FMSB', 'Concours FMSB / CUSS'),
+        ('CONCOURS_ENS', 'Concours ENS'),
+        ('CONCOURS_ENAM', 'Concours ENAM'),
+        ('CONCOURS_SANTE', 'Concours Santé Publique'),
+        # Legacy — superseded by BAC_GEN plus série specialties, kept valid for
+        # profiles and content created before the catalogue existed.
+        ('BAC_A', 'BAC A (legacy)'), ('BAC_C', 'BAC C (legacy)'),
+        ('BAC_D', 'BAC D (legacy)'), ('BAC_E', 'BAC E (legacy)'),
     ]
     exam_level = models.CharField(max_length=20, choices=EXAM_CHOICES, null=True, blank=True)
-    specialty  = models.CharField(max_length=100, null=True, blank=True)
+
+    # The specialty is stored twice on purpose: `specialty` is the display string
+    # every existing reader already uses (and the only field filled in when the
+    # student picks "Other"), while `specialty_ref` links to the catalogue when
+    # they picked a listed one. A string reference avoids a circular import,
+    # since apps.content imports this module.
+    specialty     = models.CharField(max_length=120, null=True, blank=True)
+    specialty_ref = models.ForeignKey(
+        'content.Specialty', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='users',
+    )
 
     # Teacher-specific
     institution      = models.CharField(max_length=200, null=True, blank=True)
@@ -83,6 +116,17 @@ class School(models.Model):
     region        = models.CharField(max_length=100, blank=True, null=True)
     contact_email = models.EmailField()
     contact_phone = models.CharField(max_length=20, blank=True, null=True)
+
+    SUBSYSTEM_CHOICES = [
+        ('anglophone', 'Anglophone'), ('francophone', 'Francophone'), ('bilingual', 'Bilingual'),
+    ]
+    subsystem = models.CharField(max_length=20, choices=SUBSYSTEM_CHOICES, default='bilingual')
+
+    TYPE_CHOICES = [
+        ('public', 'Public'), ('private', 'Private'), ('confessional', 'Confessional'),
+    ]
+    school_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='public')
+
     admin_user    = models.OneToOneField(User, on_delete=models.PROTECT, related_name='managed_school')
     logo_url      = models.TextField(null=True, blank=True)
     is_active     = models.BooleanField(default=True)

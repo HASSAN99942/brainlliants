@@ -14,14 +14,24 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
             'email', 'password', 'confirm_password',
             'first_name', 'last_name', 'phone',
             'date_of_birth', 'subsystem', 'exam_level',
-            'specialty', 'interface_language'
+            'specialty', 'specialty_ref', 'interface_language'
         ]
+        extra_kwargs = {
+            # Optional: null when the student typed their own under "Other".
+            'specialty_ref': {'required': False, 'allow_null': True},
+        }
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         if User.objects.filter(email=data['email']).exists():
             raise serializers.ValidationError({'email': 'An account with this email already exists.'})
+
+        # A listed specialty is the source of truth for the display string, so a
+        # mismatched or missing `specialty` can never disagree with the FK.
+        ref = data.get('specialty_ref')
+        if ref is not None:
+            data['specialty'] = ref.name
         return data
 
     def create(self, validated_data):
@@ -124,7 +134,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'phone',
-            'role', 'subsystem', 'exam_level', 'specialty',
+            'role', 'subsystem', 'exam_level', 'specialty', 'specialty_ref',
             'institution', 'subjects_taught', 'years_experience',
             'interface_language', 'is_verified', 'is_teacher_verified',
             'is_pro', 'pro_expiry', 'profile_photo_url', 'created_at'
@@ -140,7 +150,36 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'first_name', 'last_name', 'phone',
-            'specialty', 'exam_level', 'subsystem',
+            'specialty', 'specialty_ref', 'exam_level', 'subsystem',
             'interface_language', 'profile_photo_url',
             'institution', 'subjects_taught', 'years_experience'
         ]
+        extra_kwargs = {
+            'specialty_ref': {'required': False, 'allow_null': True},
+        }
+
+    def validate(self, data):
+        """Keep `specialty` and `specialty_ref` from ever disagreeing."""
+        if 'specialty_ref' in data:
+            ref = data['specialty_ref']
+            if ref is not None:
+                # A listed specialty owns the display string.
+                data['specialty'] = ref.name
+        elif 'specialty' in data:
+            # A free-typed specialty means they are no longer on a listed one,
+            # so the old link must go with it.
+            data['specialty_ref'] = None
+
+        # Moving exam or subsystem can orphan the link. Drop the structural
+        # reference but keep the visible string, which is the student's to edit.
+        current = self.instance
+        exam = data.get('exam_level', getattr(current, 'exam_level', None))
+        subsystem = data.get('subsystem', getattr(current, 'subsystem', None))
+        ref = data.get('specialty_ref', getattr(current, 'specialty_ref', None))
+        if ref is not None:
+            covers_exam = exam in (ref.exam_levels or [])
+            covers_subsystem = ref.subsystem in (subsystem, 'bilingual')
+            if not (covers_exam and covers_subsystem):
+                data['specialty_ref'] = None
+
+        return data
