@@ -104,7 +104,7 @@ DATABASES = {
 
 # Managed hosts (Render, Heroku, Railway…) hand out one connection string
 # instead of the discrete DB_* parts above. When present it wins.
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = (os.environ.get('DATABASE_URL') or '').strip()
 if DATABASE_URL:
     import dj_database_url
     DATABASES['default'] = dj_database_url.parse(
@@ -112,6 +112,16 @@ if DATABASE_URL:
         conn_max_age=600,
         # Render's managed Postgres requires TLS.
         ssl_require=os.environ.get('DB_SSL_REQUIRE', 'True') == 'True',
+    )
+elif os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    # On Render the only way to reach the managed Postgres is DATABASE_URL.
+    # Failing here with a clear message beats a psycopg2 "connection refused"
+    # traceback aimed at localhost. The render.yaml Blueprint wires this up
+    # automatically; a manually created service needs it added by hand.
+    raise ImproperlyConfigured(
+        'DATABASE_URL is not set. Create a Postgres instance on Render and set '
+        'this service\'s DATABASE_URL to its "Internal Database URL" (or redeploy '
+        'via the render.yaml Blueprint, which fills it in automatically).'
     )
 
 # Redis backs both the WebSocket channel layer and Celery. Managed Redis is
