@@ -21,4 +21,7 @@ RUN python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Daphne (not gunicorn) serves the ASGI application, which is what powers the
+# community WebSocket chat. Migrations and the idempotent super-admin bootstrap
+# run on every start so a fresh database works with zero manual steps.
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py create_admin && daphne -b 0.0.0.0 -p ${PORT:-8000} config.asgi:application"]

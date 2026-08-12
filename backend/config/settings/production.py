@@ -4,6 +4,14 @@ DEBUG = False
 CORS_ALLOW_ALL_ORIGINS = False
 
 # --- Security -------------------------------------------------------------
+# Render injects the service's public hostname. Add it automatically so the
+# app works with zero manual ALLOWED_HOSTS config (it also feeds the CSRF
+# trust list below). Must happen before CSRF_TRUSTED_ORIGINS is built.
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    render_host = os.environ['RENDER_EXTERNAL_HOSTNAME'].strip()
+    if render_host and render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(render_host)
+
 # Render terminates TLS at its proxy, so Django only sees http:// unless it is
 # told to trust the forwarded header. Without this, SECURE_SSL_REDIRECT would
 # loop forever.

@@ -1,0 +1,72 @@
+# Render Blueprint — deploy the Brailliants backend in one click.
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. Open Render → "New +" → "Blueprint".
+#   3. Select the repo and hit "Apply". Render creates the web service, the
+#      Postgres database and the Redis instance below and wires their URLs
+#      into the service automatically.
+#   4. In the service's "Environment" tab, fill in the secrets that start as
+#      empty (GEMINI_API_KEY, CAMPAY_*, DJANGO_SUPERUSER_*) and press "Manual
+#      Deploy" once.
+#
+# Free-tier caveats (Render's rules, not ours):
+#   - The free Postgres database EXPIRES 30 DAYS after creation. When it does,
+#     upgrade it or point DATABASE_URL at a permanent free Postgres (e.g. Neon)
+#     — the app code supports either via dj-database-url.
+#   - The free Key Value (Redis) instance is in-memory only (no persistence).
+#     That is fine for the WebSocket chat channel layer; do not store anything
+#     that must survive a restart there.
+#   - Free web services spin down after 15 minutes without traffic (~1 min cold
+#     start). One always-on instance stays inside the 750 free hours/month.
+
+databases:
+  - name: brailliants-db
+    databaseName: brailliants
+    user: brailliants
+    plan: free
+
+keyValues:
+  - name: brailliants-redis
+    plan: free
+
+services:
+  - type: web
+    name: brailliants-api
+    runtime: python
+    rootDirectory: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && python manage.py create_admin && daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: brailliants-db
+          property: connectionString
+      - key: REDIS_URL
+        fromKeyValue:
+          name: brailliants-redis
+          property: connectionString
+      - key: PAYMENTS_ENABLED
+        value: "false"
+      # Optional secrets — created empty, fill them in the Render dashboard.
+      # RENDER_EXTERNAL_HOSTNAME is added to ALLOWED_HOSTS automatically.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CAMPAY_USERNAME
+        sync: false
+      - key: CAMPAY_PASSWORD
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+      - key: DJANGO_SUPERUSER_FIRST_NAME
+        sync: false
+      - key: DJANGO_SUPERUSER_LAST_NAME
+        sync: false
