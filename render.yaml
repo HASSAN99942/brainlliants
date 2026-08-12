@@ -37,6 +37,7 @@ services:
   - type: web
     name: brailliants-api
     runtime: python
+    pythonVersion: "3.13"
     rootDir: backend
     plan: free
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput

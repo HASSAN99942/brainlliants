@@ -7,7 +7,6 @@ real key in backend/.env and restart — the mock path is skipped automatically.
 """
 import json
 
-import google.generativeai as genai
 from django.conf import settings
 
 MODEL = 'gemini-1.5-flash'
@@ -18,10 +17,6 @@ _PLACEHOLDER_KEYS = {'', 'your-gemini-api-key', 'your-gemini-api-key-here'}
 def _has_real_key() -> bool:
     key = (settings.GEMINI_API_KEY or '').strip()
     return key not in _PLACEHOLDER_KEYS
-
-
-if _has_real_key():
-    genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 def _build_system_prompt(user) -> str:
@@ -146,6 +141,12 @@ def chat(user, messages: list) -> str:
     if not _has_real_key():
         return _mock_chat_reply(user, last_message)
 
+    # Import lazily: the library is only required when a real API key is
+    # configured, and it must not block importing this module (so demo mode
+    # works even on Python/runtime combinations where the wheel won't import).
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+
     model = genai.GenerativeModel(
         model_name=MODEL,
         system_instruction=_build_system_prompt(user),
@@ -165,6 +166,10 @@ def summarise_document(user, file_bytes: bytes, mime_type: str) -> dict:
 
     if not _has_real_key():
         return _mock_summary(user)
+
+    # Import lazily — see chat() above; demo mode must work without the wheel.
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
 
     lang = 'English' if user.interface_language == 'en' else 'French'
 
