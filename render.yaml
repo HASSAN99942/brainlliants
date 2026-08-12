@@ -37,7 +37,6 @@ services:
   - type: web
     name: brailliants-api
     runtime: python
-    pythonVersion: "3.13"
     rootDir: backend
     plan: free
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
@@ -46,6 +45,11 @@ services:
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.production
+      # Render defaults to Python 3.14, but google-generativeai 0.7.* isn't
+      # compatible with 3.14 yet (protobuf metaclass crash). Pin 3.13 so the
+      # real AI path works, not just demo mode. Fully-qualified is required.
+      - key: PYTHON_VERSION
+        value: "3.13.5"
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
