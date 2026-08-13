@@ -11,7 +11,7 @@ from django.conf import settings
 
 MODEL = 'gemini-1.5-flash'
 
-_PLACEHOLDER_KEYS = {'', 'your-gemini-api-key', 'your-gemini-api-key-here'}
+_PLACEHOLDER_KEYS = {'', 'your-gemini-api-key', 'AQ.Ab8RN6IM8J94liUYs5dqr_cxSwpXlME2yM8A82XFpE1MjhBMLg'}
 
 
 def _has_real_key() -> bool:

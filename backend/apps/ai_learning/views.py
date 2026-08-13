@@ -3,11 +3,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from logging import getLogger
 
 from .models import AISession, QuizResult
 from .serializers import AIChatSerializer, QuizResultSerializer, AISessionListSerializer
 from .services.gemini_service import chat, summarise_document
 from .services.quota_service import can_use_ai, get_usage_info
+
+
+logger = getLogger(__name__)
 
 
 class AIChatView(APIView):
@@ -44,17 +48,22 @@ class AIChatView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Save session
-        session = AISession.objects.create(
-            user=request.user,
-            session_type='chat',
-            messages_json=request.data.get('messages', []),
-            language_used=request.user.interface_language,
-        )
+        # Persist the session best-effort: a logging failure must never deny the
+        # user their reply. If it ever fails we still return 200 with the answer.
+        session = None
+        try:
+            session = AISession.objects.create(
+                user=request.user,
+                session_type='chat',
+                messages_json=request.data.get('messages', []),
+                language_used=request.user.interface_language,
+            )
+        except Exception:
+            logger.exception('Failed to persist AI chat session')
 
         usage = get_usage_info(request.user)
         return Response({
-            'session_id': str(session.id),
+            'session_id': str(session.id) if session else None,
             'reply': reply,
             'usage': usage,
         })
@@ -98,17 +107,22 @@ class SummariseView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Save session
-        session = AISession.objects.create(
-            user=request.user,
-            session_type='summarise',
-            summary_output=result.get('summary', ''),
-            explanation_output=result.get('explanation', ''),
-            language_used=request.user.interface_language,
-        )
+        # Persist the session best-effort so a logging hiccup can never drop the
+        # summarised content from the response.
+        session = None
+        try:
+            session = AISession.objects.create(
+                user=request.user,
+                session_type='summarise',
+                summary_output=result.get('summary', ''),
+                explanation_output=result.get('explanation', ''),
+                language_used=request.user.interface_language,
+            )
+        except Exception:
+            logger.exception('Failed to persist AI summarise session')
 
         return Response({
-            'session_id': str(session.id),
+            'session_id': str(session.id) if session else None,
             'summary': result.get('summary', ''),
             'explanation': result.get('explanation', ''),
             'questions': result.get('questions', []),
