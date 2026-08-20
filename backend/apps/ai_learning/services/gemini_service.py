@@ -6,8 +6,11 @@ tested end-to-end (including on Flutter web) without a key. To go live, set a
 real key in backend/.env and restart — the mock path is skipped automatically.
 """
 import json
+import logging
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 MODEL = 'gemini-1.5-flash'
 
@@ -151,17 +154,24 @@ def chat(user, messages: list) -> str:
     # Import lazily: the library is only required when a real API key is
     # configured, and it must not block importing this module (so demo mode
     # works even on Python/runtime combinations where the wheel won't import).
-    import google.generativeai as genai
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.GEMINI_API_KEY)
 
-    model = genai.GenerativeModel(
-        model_name=MODEL,
-        system_instruction=_build_system_prompt(user),
-    )
-    history = messages[:-1] if len(messages) > 1 else []
-    chat_session = model.start_chat(history=history)
-    response = chat_session.send_message(last_message)
-    return response.text
+        model = genai.GenerativeModel(
+            model_name=MODEL,
+            system_instruction=_build_system_prompt(user),
+        )
+        history = messages[:-1] if len(messages) > 1 else []
+        chat_session = model.start_chat(history=history)
+        response = chat_session.send_message(last_message)
+        return response.text
+    except Exception:
+        # Real Gemini call failed (bad/revoked key, network, quota, model
+        # change, ...). Log the real reason and degrade to demo so the chat
+        # screen never surfaces an error. Set a valid GEMINI_API_KEY for real AI.
+        logger.exception('Gemini chat request failed; falling back to demo')
+        return _mock_chat_reply(user, last_message)
 
 
 def summarise_document(user, file_bytes: bytes, mime_type: str) -> dict:
