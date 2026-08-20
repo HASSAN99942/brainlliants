@@ -43,6 +43,7 @@ class AIChatView(APIView):
         try:
             reply = chat(request.user, gemini_messages)
         except Exception as e:
+            logger.exception('AI chat request failed')
             return Response(
                 {'error': 'ai_error', 'message': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -102,6 +103,7 @@ class SummariseView(APIView):
             file_bytes = file.read()
             result = summarise_document(request.user, file_bytes, file.content_type)
         except Exception as e:
+            logger.exception('AI summarise request failed')
             return Response(
                 {'error': 'ai_error', 'message': f'Failed to process document: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

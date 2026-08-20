@@ -13,11 +13,17 @@ MODEL = 'gemini-1.5-flash'
 
 
 def _has_real_key() -> bool:
-    # A key is "real" only when it is present and non-empty. The previous
-    # placeholder-string check was removed because those example strings
-    # triggered GitHub's push-protection secret scanner; an empty/missing
-    # key simply means demo mode.
-    return bool((settings.GEMINI_API_KEY or '').strip())
+    """True only when GEMINI_API_KEY looks like a real Google API key.
+
+    We check for the GCP API-key shape (the ``AIza`` prefix and a realistic
+    length) rather than treating *any* non-empty string as real. This means a
+    placeholder copied from ``.env.example`` (or any other obviously-fake
+    value) falls through to demo mode instead of forcing a doomed real call
+    that surfaces as "something went wrong". No key material is ever stored
+    in source.
+    """
+    key = (settings.GEMINI_API_KEY or '').strip()
+    return key.startswith('AIza') and len(key) >= 36
 
 
 def _build_system_prompt(user) -> str:
