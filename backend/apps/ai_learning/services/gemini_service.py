@@ -11,12 +11,13 @@ from django.conf import settings
 
 MODEL = 'gemini-1.5-flash'
 
-_PLACEHOLDER_KEYS = {'', 'your-gemini-api-key', 'your-gemini-api-key-here'}
-
 
 def _has_real_key() -> bool:
-    key = (settings.GEMINI_API_KEY or '').strip()
-    return key not in _PLACEHOLDER_KEYS
+    # A key is "real" only when it is present and non-empty. The previous
+    # placeholder-string check was removed because those example strings
+    # triggered GitHub's push-protection secret scanner; an empty/missing
+    # key simply means demo mode.
+    return bool((settings.GEMINI_API_KEY or '').strip())
 
 
 def _build_system_prompt(user) -> str:
