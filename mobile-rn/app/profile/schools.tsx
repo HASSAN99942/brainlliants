@@ -1,21 +1,30 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../src/core/theme';
 import { AppButton } from '../../src/shared/components/AppButton';
 import { useMyEnrolments } from '../../src/features/enrolment/hooks';
 import { Enrolment, EnrolmentStatus } from '../../src/features/enrolment/api';
 import { useFeatureGuard } from '../../src/core/config/useFeatureGuard';
 
-const STATUS_STYLE: Record<EnrolmentStatus, { bg: string; fg: string; label: string }> = {
-  approved: { bg: Colors.successLight, fg: Colors.success, label: 'Approved' },
-  pending: { bg: '#FFF3E0', fg: '#B26A00', label: 'Pending review' },
-  rejected: { bg: Colors.errorLight, fg: Colors.error, label: 'Rejected' },
+// Pending keeps its warm amber tint in both themes — it maps to the action family.
+const STATUS_TONE: Record<EnrolmentStatus, keyof typeof STATUS_KEYS> = {
+  approved: 'approved',
+  pending: 'pending',
+  rejected: 'rejected',
 };
+const STATUS_KEYS = {
+  approved: { bg: 'successLight', fg: 'success', key: 'school.statusApproved' },
+  pending: { bg: 'actionDisabled', fg: 'actionText', key: 'school.statusPending' },
+  rejected: { bg: 'errorLight', fg: 'error', key: 'school.statusRejected' },
+} as const;
 
 export default function MySchools() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   const enabled = useFeatureGuard('schoolModule');
   const { data, isLoading, refetch } = useMyEnrolments();
 
@@ -25,16 +34,16 @@ export default function MySchools() {
   if (!enabled) return null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.appbar}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top', 'left', 'right']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardSurface, paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>My Schools</Text>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary }}>{t('settings.mySchools')}</Text>
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />
+        <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : (
         <FlatList
           data={data ?? []}
@@ -42,41 +51,44 @@ export default function MySchools() {
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <Ionicons name="school-outline" size={56} color={Colors.primaryLight} />
-              <Text style={{ fontSize: 15, color: Colors.textSecondary, marginTop: 12 }}>
-                You haven&apos;t joined a school yet
+              <Ionicons name="school-outline" size={56} color={colors.primaryLight} />
+              <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 12 }}>
+                {t('school.emptyTitle')}
               </Text>
-              <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 4, textAlign: 'center' }}>
-                Join your school to access its private papers and notes
+              <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4, textAlign: 'center' }}>
+                {t('school.emptyHint')}
               </Text>
             </View>
           }
           renderItem={({ item }: { item: Enrolment }) => {
-            const st = STATUS_STYLE[item.status] ?? STATUS_STYLE.pending;
+            const tone = STATUS_KEYS[STATUS_TONE[item.status] ?? 'pending'];
             return (
-              <View style={styles.card}>
+              <View style={{
+                backgroundColor: colors.cardSurface, borderRadius: 16, borderWidth: 0.5,
+                borderColor: colors.inputBorder, padding: 16, marginBottom: 10,
+              }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.textPrimary, flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, flex: 1 }}>
                     {item.school.name}
                   </Text>
-                  <View style={[styles.statusChip, { backgroundColor: st.bg }]}>
-                    <Text style={{ fontSize: 11, fontWeight: '500', color: st.fg }}>{st.label}</Text>
+                  <View style={{ backgroundColor: colors[tone.bg], paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '500', color: colors[tone.fg] }}>{t(tone.key)}</Text>
                   </View>
                 </View>
-                <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 6 }}>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>
                   {[item.school.town, item.school.region].filter(Boolean).join(' · ')}
                 </Text>
-                <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 4 }}>
-                  Matricule: {item.matricule}
+                <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+                  {t('school.matriculeShort')}: {item.matricule}
                 </Text>
                 {item.status === 'approved' ? (
-                  <Text style={{ fontSize: 12, color: Colors.success, marginTop: 8 }}>
-                    You can now see this school&apos;s private papers and notes in Resources.
+                  <Text style={{ fontSize: 12, color: colors.success, marginTop: 8 }}>
+                    {t('school.approvedHint')}
                   </Text>
                 ) : null}
                 {item.status === 'rejected' ? (
-                  <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 8 }}>
-                    Check your matricule with the school, then request again.
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
+                    {t('school.rejectedHint')}
                   </Text>
                 ) : null}
               </View>
@@ -84,7 +96,7 @@ export default function MySchools() {
           }}
           ListFooterComponent={
             <AppButton
-              label="Find a school"
+              label={t('school.findSchool')}
               onPress={() => router.push('/profile/school-search')}
               style={{ marginTop: 12 }}
             />
@@ -94,17 +106,3 @@ export default function MySchools() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  appbar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    paddingHorizontal: 16, paddingVertical: 12, gap: 12,
-  },
-  title: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, borderWidth: 0.5,
-    borderColor: Colors.inputBorder, padding: 16, marginBottom: 10,
-  },
-  statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8 },
-});

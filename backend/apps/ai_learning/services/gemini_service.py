@@ -7,12 +7,29 @@ real key in backend/.env and restart — the mock path is skipped automatically.
 """
 import json
 import logging
+import os
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL = 'gemini-1.5-flash'
+# Model choice is latency-critical: the mobile client aborts requests after
+# 30s (apiClient.ts), and the big "thinking" models take 60-90s per reply,
+# which surfaced as "something went wrong" plus orphaned ASGI tasks. The
+# flash-lite tier answers in ~1-5s. Retired names hard-fail with 404 (both
+# gemini-1.5-* and gemini-2.5-* are closed to new projects), so this default
+# is pinned to a current fast model — override with GEMINI_MODEL in .env.
+MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite')
+
+# Give up on Gemini just BEFORE the client's 30s timeout so a slow/struggling
+# call degrades to the demo reply inside the app's wait window instead of
+# surfacing as a network error.
+REQUEST_TIMEOUT_SECONDS = 25
+
+# The summariser uploads whole documents and generates long JSON, so it gets
+# a larger budget — still just under the app's 60s timeout for this endpoint
+# (mobile-rn/src/features/ai/api.ts).
+SUMMARISE_TIMEOUT_SECONDS = 55
 
 
 def _has_real_key() -> bool:
@@ -164,7 +181,10 @@ def chat(user, messages: list) -> str:
         )
         history = messages[:-1] if len(messages) > 1 else []
         chat_session = model.start_chat(history=history)
-        response = chat_session.send_message(last_message)
+        response = chat_session.send_message(
+            last_message,
+            request_options={'timeout': REQUEST_TIMEOUT_SECONDS},
+        )
         return response.text
     except Exception:
         # Real Gemini call failed (bad/revoked key, network, quota, model
@@ -179,7 +199,7 @@ def summarise_document(user, file_bytes: bytes, mime_type: str) -> dict:
     Uploads file to Gemini and returns:
     {summary, explanation, questions: [{question, options, correct_option, explanation}]}
     """
-    import tempfile, os
+    import tempfile
 
     if not _has_real_key():
         return _mock_summary(user)
@@ -196,6 +216,7 @@ def summarise_document(user, file_bytes: bytes, mime_type: str) -> dict:
         tmp.write(file_bytes)
         tmp_path = tmp.name
 
+    uploaded = None
     try:
         uploaded = genai.upload_file(tmp_path, mime_type=mime_type)
         model = genai.GenerativeModel(MODEL)
@@ -216,7 +237,10 @@ The JSON must have exactly this structure:
 }}
 Generate exactly 5 multiple choice questions. Respond in {lang}."""
 
-        response = model.generate_content([uploaded, prompt])
+        response = model.generate_content(
+            [uploaded, prompt],
+            request_options={'timeout': SUMMARISE_TIMEOUT_SECONDS},
+        )
         text = response.text.strip()
 
         # Strip any accidental markdown fences
@@ -228,9 +252,17 @@ Generate exactly 5 multiple choice questions. Respond in {lang}."""
 
         return json.loads(text)
 
+    except Exception:
+        # Real Gemini call failed (bad/revoked key, network, quota, model
+        # change, unparsable JSON, ...). Log the real reason and degrade to
+        # the demo summary so the app never surfaces a raw 500.
+        logger.exception('Gemini summarise request failed; falling back to demo')
+        return _mock_summary(user)
+
     finally:
         os.unlink(tmp_path)
-        try:
-            uploaded.delete()
-        except Exception:
-            pass
+        if uploaded is not None:
+            try:
+                uploaded.delete()
+            except Exception:
+                pass

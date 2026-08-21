@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, FlatList, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../src/core/constants/colors';
+import { useTheme } from '../../src/core/theme';
 import { AppButton } from '../../src/shared/components/AppButton';
 import { communityApi, Group, GroupPost, isNotMember } from '../../src/features/community/api';
 
 export default function GroupDetail() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ group: string }>();
   const group: Group | null = (() => {
     try { return JSON.parse(params.group ?? 'null'); } catch { return null; }
@@ -32,7 +37,7 @@ export default function GroupDetail() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: Colors.textSecondary }}>Group not found.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t('community.groupNotFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -57,7 +62,7 @@ export default function GroupDetail() {
     } catch (e) {
       setInput(text);
       // The backend rejects posts from non-members with 403.
-      setNotice(isNotMember(e) ? 'Join the group to post.' : 'Could not post. Try again.');
+      setNotice(isNotMember(e) ? t('community.joinToPost') : t('community.postError'));
       if (isNotMember(e)) setIsMember(false);
     }
   };
@@ -66,20 +71,20 @@ export default function GroupDetail() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.appbar}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>{group.name}</Text>
       </View>
 
-      <View style={styles.tabBar}>
-        {(['discussion', 'chat'] as const).map((t) => (
+      <View style={[styles.tabBar, { backgroundColor: colors.cardSurface }]}>
+        {(['discussion', 'chat'] as const).map((tabKey) => (
           <Pressable
-            key={t}
-            onPress={() => setTab(t)}
-            style={[styles.tab, tab === t && { borderBottomColor: Colors.action, borderBottomWidth: 2 }]}
+            key={tabKey}
+            onPress={() => setTab(tabKey)}
+            style={[styles.tab, tab === tabKey && { borderBottomColor: colors.action, borderBottomWidth: 2 }]}
           >
-            <Text style={{ fontWeight: '600', color: tab === t ? Colors.primary : Colors.textSecondary }}>
-              {t === 'discussion' ? 'Discussion' : 'Live Chat'}
+            <Text style={{ fontWeight: '600', color: tab === tabKey ? colors.primary : colors.textSecondary }}>
+              {tabKey === 'discussion' ? t('community.discussion') : t('community.liveChat')}
             </Text>
           </Pressable>
         ))}
@@ -88,7 +93,7 @@ export default function GroupDetail() {
       {tab === 'discussion' ? (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />
+            <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
           ) : (
             <FlatList
               data={posts}
@@ -97,21 +102,21 @@ export default function GroupDetail() {
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <View style={{ alignItems: 'center', marginTop: 60 }}>
-                  <Ionicons name="chatbubble-outline" size={56} color={Colors.primaryLight} />
-                  <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>No posts yet — start the conversation</Text>
+                  <Ionicons name="chatbubble-outline" size={56} color={colors.primaryLight} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 12 }}>{t('community.noPosts')}</Text>
                 </View>
               }
               renderItem={({ item }) => (
                 <View style={styles.postCard}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.primaryMid }}>{item.author_name}</Text>
-                  <Text style={{ fontSize: 14, color: Colors.textPrimary, marginTop: 6, lineHeight: 20 }}>{item.body}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primaryMid }}>{item.author_name}</Text>
+                  <Text style={{ fontSize: 14, color: colors.textPrimary, marginTop: 6, lineHeight: 20 }}>{item.body}</Text>
                 </View>
               )}
             />
           )}
 
           {notice ? (
-            <Text style={{ fontSize: 12, color: Colors.error, paddingHorizontal: 20, paddingBottom: 6 }}>{notice}</Text>
+            <Text style={{ fontSize: 12, color: colors.error, paddingHorizontal: 20, paddingBottom: 6 }}>{notice}</Text>
           ) : null}
 
           {isMember ? (
@@ -120,9 +125,9 @@ export default function GroupDetail() {
                 <TextInput
                   value={input}
                   onChangeText={setInput}
-                  placeholder="Post to the group..."
-                  placeholderTextColor={Colors.textMuted}
-                  style={{ fontSize: 15, color: Colors.textPrimary }}
+                  placeholder={t('community.postToGroup')}
+                  placeholderTextColor={colors.textMuted}
+                  style={{ fontSize: 15, color: colors.textPrimary }}
                 />
               </View>
               <Pressable onPress={send} style={styles.sendBtn}>
@@ -131,25 +136,23 @@ export default function GroupDetail() {
             </View>
           ) : (
             <View style={styles.joinBar}>
-              <Text style={{ flex: 1, fontSize: 14, color: Colors.textSecondary }}>Join this group to post</Text>
+              <Text style={{ flex: 1, fontSize: 14, color: colors.textSecondary }}>{t('community.joinToPostBar')}</Text>
               <Pressable onPress={join} style={styles.joinBtn}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.actionText }}>Join</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.actionText }}>{t('community.join')}</Text>
               </Pressable>
             </View>
           )}
         </KeyboardAvoidingView>
       ) : (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Ionicons name="flash-outline" size={56} color={Colors.primaryLight} />
-          <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginTop: 14 }}>Live group chat</Text>
-          <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 6, textAlign: 'center' }}>
-            {isMember
-              ? 'Real-time messages with everyone in this group.'
-              : 'Join the group to take part in the live chat.'}
+          <Ionicons name="flash-outline" size={56} color={colors.primaryLight} />
+          <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginTop: 14 }}>{t('community.liveGroupChat')}</Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>
+            {isMember ? t('community.realtimeHint') : t('community.joinForChatHint')}
           </Text>
           {isMember ? (
             <AppButton
-              label="Open chat"
+              label={t('community.openChat')}
               onPress={() => router.push({
                 pathname: '/community/chat',
                 params: { groupId: group.id, groupName: group.name },
@@ -157,7 +160,7 @@ export default function GroupDetail() {
               style={{ width: '100%', marginTop: 20 }}
             />
           ) : (
-            <AppButton label="Join group" onPress={join} style={{ width: '100%', marginTop: 20 }} />
+            <AppButton label={t('community.joinGroup')} onPress={join} style={{ width: '100%', marginTop: 20 }} />
           )}
         </View>
       )}
@@ -165,16 +168,16 @@ export default function GroupDetail() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  title: { flex: 1, fontSize: 17, fontWeight: 'bold', color: Colors.textPrimary },
-  tabBar: { flexDirection: 'row', backgroundColor: '#fff' },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
+  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  title: { flex: 1, fontSize: 17, fontWeight: 'bold', color: c.textPrimary },
+  tabBar: { flexDirection: 'row' },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 14 },
-  postCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 0.5, borderColor: Colors.inputBorder, padding: 14, marginBottom: 10 },
-  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  inputPill: { flex: 1, backgroundColor: Colors.primaryLight, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
-  sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.action, alignItems: 'center', justifyContent: 'center' },
-  joinBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
-  joinBtn: { backgroundColor: Colors.action, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 12 },
+  postCard: { backgroundColor: c.cardSurface, borderRadius: 14, borderWidth: 0.5, borderColor: c.inputBorder, padding: 14, marginBottom: 10 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  inputPill: { flex: 1, backgroundColor: c.primaryLight, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
+  sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.action, alignItems: 'center', justifyContent: 'center' },
+  joinBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
+  joinBtn: { backgroundColor: c.action, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 12 },
 });

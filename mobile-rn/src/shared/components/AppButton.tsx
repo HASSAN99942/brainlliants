@@ -1,12 +1,14 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
-import { Colors, Radius } from '../../core/constants/colors';
+import { Radius } from '../../core/constants/colors';
+import { useTheme } from '../../core/theme';
 
 type Variant = 'primary' | 'secondary';
 
 export function AppButton({
   label, onPress, disabled, loading, variant = 'primary', style,
 }: { label: string; onPress?: () => void; disabled?: boolean; loading?: boolean; variant?: Variant; style?: ViewStyle }) {
+  const { colors } = useTheme();
   const isPrimary = variant === 'primary';
   return (
     <Pressable
@@ -14,15 +16,15 @@ export function AppButton({
       style={[
         styles.base,
         isPrimary
-          ? { backgroundColor: disabled ? Colors.actionDisabled : Colors.action }
-          : { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.primary },
+          ? { backgroundColor: disabled ? colors.actionDisabled : colors.action }
+          : { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? Colors.actionText : Colors.primary} />
+        <ActivityIndicator color={isPrimary ? colors.actionText : colors.primary} />
       ) : (
-        <Text style={[styles.label, { color: isPrimary ? Colors.actionText : Colors.primary }]}>{label}</Text>
+        <Text style={[styles.label, { color: isPrimary ? colors.actionText : colors.primary }]}>{label}</Text>
       )}
     </Pressable>
   );

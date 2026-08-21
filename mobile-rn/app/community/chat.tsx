@@ -1,14 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../src/core/constants/colors';
+import { useTheme } from '../../src/core/theme';
 import { GroupSocket, ChatMessagePayload, SocketError } from '../../src/core/network/websocket';
 import { plannerApi } from '../../src/features/planner/api';
 import { useAuthStore } from '../../src/features/auth/store';
 
 export default function GroupChat() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { groupId, groupName } = useLocalSearchParams<{ groupId: string; groupName?: string }>();
   const currentUser = useAuthStore((s) => s.user);
 
@@ -53,29 +58,29 @@ export default function GroupChat() {
   };
 
   const errorText =
-    socketError === 'not_member' ? 'Join this group to take part in the chat.'
-      : socketError === 'unauthenticated' ? 'Your session expired — sign in again.'
+    socketError === 'not_member' ? t('community.errNotMember')
+      : socketError === 'unauthenticated' ? t('community.errSessionExpired')
         : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.appbar}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{groupName ?? 'Group chat'}</Text>
+        <Text style={styles.title} numberOfLines={1}>{groupName ?? t('community.groupChat')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="ellipse" size={10} color={connected ? Colors.success : Colors.textMuted} />
-          <Text style={{ fontSize: 13, fontWeight: '500', marginLeft: 6, color: connected ? Colors.success : Colors.textMuted }}>
-            {connected ? 'Connected' : socketError ? 'Offline' : 'Connecting...'}
+          <Ionicons name="ellipse" size={10} color={connected ? colors.success : colors.textMuted} />
+          <Text style={{ fontSize: 13, fontWeight: '500', marginLeft: 6, color: connected ? colors.success : colors.textMuted }}>
+            {connected ? t('community.connected') : socketError ? t('community.offlineStatus') : t('community.connecting')}
           </Text>
         </View>
       </View>
 
       {errorText ? (
         <View style={styles.banner}>
-          <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
-          <Text style={{ flex: 1, fontSize: 13, color: Colors.error, marginLeft: 8 }}>{errorText}</Text>
+          <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+          <Text style={{ flex: 1, fontSize: 13, color: colors.error, marginLeft: 8 }}>{errorText}</Text>
         </View>
       ) : null}
 
@@ -93,8 +98,8 @@ export default function GroupChat() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="chatbubbles-outline" size={56} color={Colors.primaryLight} />
-              <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>No messages yet — say hello</Text>
+              <Ionicons name="chatbubbles-outline" size={56} color={colors.primaryLight} />
+              <Text style={{ color: colors.textSecondary, marginTop: 12 }}>{t('community.noMessages')}</Text>
             </View>
           }
           renderItem={({ item }) => <Bubble msg={item} mine={item.sender_id === currentUser?.id} />}
@@ -105,15 +110,15 @@ export default function GroupChat() {
             <TextInput
               value={input}
               onChangeText={setInput}
-              placeholder="Message the group..."
-              placeholderTextColor={Colors.textMuted}
-              style={{ fontSize: 15, color: Colors.textPrimary, maxHeight: 100 }}
+              placeholder={t('community.messageGroup')}
+              placeholderTextColor={colors.textMuted}
+              style={{ fontSize: 15, color: colors.textPrimary, maxHeight: 100 }}
               multiline
             />
           </View>
           <Pressable
             onPress={send}
-            style={[styles.sendBtn, { backgroundColor: connected ? Colors.action : Colors.actionDisabled }]}
+            style={[styles.sendBtn, { backgroundColor: connected ? colors.action : colors.actionDisabled }]}
           >
             <Ionicons name="send" size={20} color="#fff" />
           </Pressable>
@@ -124,35 +129,40 @@ export default function GroupChat() {
 }
 
 function Bubble({ msg, mine }: { msg: ChatMessagePayload; mine: boolean }) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   return (
     <View style={{ alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
       {!mine ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, marginLeft: 4 }}>
-          <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.primaryMid }}>{msg.sender_name}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '500', color: colors.primaryMid }}>{msg.sender_name}</Text>
           {msg.is_teacher ? (
-            <View style={styles.teacherBadge}>
-              <Text style={{ fontSize: 11, color: Colors.success, fontWeight: '500' }}>Teacher</Text>
+            <View style={{ backgroundColor: colors.successLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 6 }}>
+              <Text style={{ fontSize: 11, color: colors.success, fontWeight: '500' }}>{t('social.teacher')}</Text>
             </View>
           ) : null}
         </View>
       ) : null}
-      <View style={[styles.bubble, mine ? styles.mine : styles.other]}>
-        <Text style={{ fontSize: 15, lineHeight: 21, color: mine ? '#fff' : Colors.textPrimary }}>{msg.body}</Text>
+      <View
+        style={[{
+          maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 10,
+        }, mine
+          ? { backgroundColor: colors.primary, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 }
+          : { backgroundColor: colors.primaryLight, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 }]}
+      >
+        <Text style={{ fontSize: 15, lineHeight: 21, color: mine ? '#fff' : colors.textPrimary }}>{msg.body}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  title: { flex: 1, fontSize: 17, fontWeight: 'bold', color: Colors.textPrimary },
-  banner: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.errorLight, paddingHorizontal: 16, paddingVertical: 10 },
-  teacherBadge: { backgroundColor: Colors.successLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 6 },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
+  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  title: { flex: 1, fontSize: 17, fontWeight: 'bold', color: c.textPrimary },
+  banner: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.errorLight, paddingHorizontal: 16, paddingVertical: 10 },
   bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 10 },
-  other: { backgroundColor: Colors.primaryLight, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 4 },
-  mine: { backgroundColor: Colors.primary, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 },
-  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  inputPill: { flex: 1, backgroundColor: Colors.bg, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  inputPill: { flex: 1, backgroundColor: c.bg, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
   sendBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 });

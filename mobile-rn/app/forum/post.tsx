@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../src/core/constants/colors';
+import { useTheme } from '../../src/core/theme';
 import { forumApi, ForumPostDetail, ForumReply } from '../../src/features/forum/api';
 import { useAuthStore } from '../../src/features/auth/store';
 
@@ -16,6 +18,9 @@ const POLL_MS = 3000;
 const POLL_MAX = 20; // give up after ~60s so a failed generation doesn't poll forever
 
 export default function PostDetail() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const currentUser = useAuthStore((s) => s.user);
 
@@ -104,7 +109,7 @@ export default function PostDetail() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator style={{ marginTop: 60 }} color={Colors.primary} />
+        <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -114,12 +119,12 @@ export default function PostDetail() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.appbar}>
           <Pressable onPress={() => router.back()} hitSlop={10}>
-            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.title}>Question</Text>
+          <Text style={styles.title}>{t('forum.question')}</Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: Colors.textSecondary }}>This question could not be loaded.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t('forum.loadFailed')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -131,9 +136,9 @@ export default function PostDetail() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.appbar}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>Question</Text>
+        <Text style={styles.title}>{t('forum.question')}</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -143,54 +148,54 @@ export default function PostDetail() {
       >
         <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <Text style={{ flex: 1, fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, lineHeight: 30 }}>
+            <Text style={{ flex: 1, fontSize: 22, fontWeight: 'bold', color: colors.textPrimary, lineHeight: 30 }}>
               {post.title}
             </Text>
             {post.is_resolved ? (
               <View style={styles.resolvedChip}>
-                <Ionicons name="checkmark" size={12} color={Colors.success} />
-                <Text style={{ fontSize: 11, color: Colors.success, fontWeight: '500', marginLeft: 4 }}>Resolved</Text>
+                <Ionicons name="checkmark" size={12} color={colors.success} />
+                <Text style={{ fontSize: 11, color: colors.success, fontWeight: '500', marginLeft: 4 }}>{t('social.resolved')}</Text>
               </View>
             ) : null}
           </View>
 
-          <Text style={{ fontSize: 15, color: Colors.textSecondary, marginTop: 10, lineHeight: 22 }}>{post.body}</Text>
+          <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 10, lineHeight: 22 }}>{post.body}</Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
             <View style={styles.avatar}>
               <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{post.author?.initials}</Text>
             </View>
-            <Text style={{ fontSize: 14, color: Colors.primaryMid, fontWeight: '500', marginLeft: 10 }}>
+            <Text style={{ fontSize: 14, color: colors.primaryMid, fontWeight: '500', marginLeft: 10 }}>
               {post.author?.display_name}
             </Text>
             {post.author?.is_teacher ? (
               <View style={styles.teacherBadge}>
-                <Text style={{ fontSize: 11, color: Colors.success, fontWeight: '500' }}>Teacher</Text>
+                <Text style={{ fontSize: 11, color: colors.success, fontWeight: '500' }}>{t('social.teacher')}</Text>
               </View>
             ) : null}
           </View>
 
-          <View style={styles.aiCard}>
+          <View style={[styles.aiCard, { backgroundColor: AI_BG }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="hardware-chip-outline" size={20} color={AI_ACCENT} />
-              <Text style={{ fontSize: 15, fontWeight: 'bold', color: AI_ACCENT, marginLeft: 8 }}>AI Answer</Text>
+              <Text style={{ fontSize: 15, fontWeight: 'bold', color: AI_ACCENT, marginLeft: 8 }}>{t('forum.aiAnswer')}</Text>
             </View>
             {post.ai_answer ? (
               <Text style={{ fontSize: 14, color: AI_TEXT, lineHeight: 21, marginTop: 10 }}>{post.ai_answer}</Text>
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
                 <ActivityIndicator size="small" color={AI_ACCENT} />
-                <Text style={{ fontSize: 14, color: AI_TEXT, marginLeft: 10 }}>Generating answer...</Text>
+                <Text style={{ fontSize: 14, color: AI_TEXT, marginLeft: 10 }}>{t('forum.generatingAnswer')}</Text>
               </View>
             )}
           </View>
 
-          <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.textPrimary, marginTop: 24, marginBottom: 12 }}>
-            {post.reply_count} {post.reply_count === 1 ? 'Reply' : 'Replies'}
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary, marginTop: 24, marginBottom: 12 }}>
+            {t('forum.replyCount', { count: post.reply_count })}
           </Text>
 
           {post.replies.length === 0 ? (
-            <Text style={{ fontSize: 14, color: Colors.textSecondary }}>No replies yet — be the first to help.</Text>
+            <Text style={{ fontSize: 14, color: colors.textSecondary }}>{t('forum.noReplies')}</Text>
           ) : (
             post.replies.map((r) => (
               <ReplyCard
@@ -209,9 +214,9 @@ export default function PostDetail() {
             <TextInput
               value={reply}
               onChangeText={setReply}
-              placeholder="Write a reply..."
-              placeholderTextColor={Colors.textMuted}
-              style={{ fontSize: 15, color: Colors.textPrimary, maxHeight: 100 }}
+              placeholder={t('forum.writeReply')}
+              placeholderTextColor={colors.textMuted}
+              style={{ fontSize: 15, color: colors.textPrimary, maxHeight: 100 }}
               multiline
             />
           </View>
@@ -227,44 +232,52 @@ export default function PostDetail() {
 function ReplyCard({ reply, isAuthor, onUpvote, onMarkBest }: {
   reply: ForumReply; isAuthor: boolean; onUpvote: () => void; onMarkBest: () => void;
 }) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   return (
-    <View style={styles.replyCard}>
+    <View style={{
+      backgroundColor: colors.cardSurface, borderRadius: 16, borderWidth: 0.5,
+      borderColor: colors.inputBorder, padding: 16, marginBottom: 10,
+    }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={[styles.avatar, { backgroundColor: Colors.primaryMid, width: 36, height: 36, borderRadius: 18 }]}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primaryMid, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{reply.author.initials}</Text>
         </View>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginLeft: 10 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginLeft: 10 }}>
           {reply.author.display_name}
         </Text>
         {reply.author.is_teacher ? (
-          <View style={styles.teacherBadge}>
-            <Text style={{ fontSize: 11, color: Colors.success, fontWeight: '500' }}>Teacher</Text>
+          <View style={{ backgroundColor: colors.successLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 6 }}>
+            <Text style={{ fontSize: 11, color: colors.success, fontWeight: '500' }}>{t('social.teacher')}</Text>
           </View>
         ) : null}
         <View style={{ flex: 1 }} />
         {reply.is_best_answer ? (
-          <View style={styles.bestChip}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.success, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 }}>
             <Ionicons name="checkmark" size={12} color="#fff" />
-            <Text style={{ fontSize: 11, color: '#fff', fontWeight: '500', marginLeft: 4 }}>Best Answer</Text>
+            <Text style={{ fontSize: 11, color: '#fff', fontWeight: '500', marginLeft: 4 }}>{t('forum.bestAnswer')}</Text>
           </View>
         ) : null}
       </View>
 
-      <Text style={{ fontSize: 14, color: Colors.textSecondary, lineHeight: 21, marginTop: 10 }}>{reply.body}</Text>
+      <Text style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 21, marginTop: 10 }}>{reply.body}</Text>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
         <Pressable
           onPress={onUpvote}
-          style={[styles.upvotePill, reply.user_has_upvoted && { backgroundColor: Colors.successLight, borderColor: Colors.success }]}
+          style={[{
+            flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6,
+            borderRadius: 20, borderWidth: 0.5, borderColor: colors.inputBorder,
+          }, reply.user_has_upvoted && { backgroundColor: colors.successLight, borderColor: colors.success }]}
         >
-          <Ionicons name="chevron-up" size={16} color={reply.user_has_upvoted ? Colors.success : Colors.textSecondary} />
-          <Text style={{ fontSize: 13, fontWeight: '500', marginLeft: 4, color: reply.user_has_upvoted ? Colors.success : Colors.textSecondary }}>
+          <Ionicons name="chevron-up" size={16} color={reply.user_has_upvoted ? colors.success : colors.textSecondary} />
+          <Text style={{ fontSize: 13, fontWeight: '500', marginLeft: 4, color: reply.user_has_upvoted ? colors.success : colors.textSecondary }}>
             {reply.upvote_count}
           </Text>
         </Pressable>
         {isAuthor && !reply.is_best_answer ? (
           <Pressable onPress={onMarkBest} style={{ marginLeft: 10, padding: 4 }}>
-            <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: '500' }}>Mark as best</Text>
+            <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500' }}>{t('forum.markBest')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -272,18 +285,15 @@ function ReplyCard({ reply, isAuthor, onUpvote, onMarkBest }: {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  title: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  aiCard: { backgroundColor: AI_BG, borderRadius: 16, padding: 16, marginTop: 20 },
-  replyCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 0.5, borderColor: Colors.inputBorder, padding: 16, marginBottom: 10 },
-  teacherBadge: { backgroundColor: Colors.successLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 6 },
-  resolvedChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.successLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8 },
-  bestChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.success, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  upvotePill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 0.5, borderColor: Colors.inputBorder },
-  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  inputPill: { flex: 1, backgroundColor: Colors.primaryLight, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
-  sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.action, alignItems: 'center', justifyContent: 'center' },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
+  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  title: { fontSize: 18, fontWeight: 'bold', color: c.textPrimary },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' },
+  aiCard: { borderRadius: 16, padding: 16, marginTop: 20 },
+  teacherBadge: { backgroundColor: c.successLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 6 },
+  resolvedChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.successLight, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  inputPill: { flex: 1, backgroundColor: c.primaryLight, borderRadius: 30, paddingHorizontal: 18, paddingVertical: 10 },
+  sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.action, alignItems: 'center', justifyContent: 'center' },
 });

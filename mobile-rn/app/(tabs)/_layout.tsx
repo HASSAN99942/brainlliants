@@ -1,10 +1,14 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../src/core/theme';
 import { initNotifications } from '../../src/core/network/notifications';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+
   // Register the push token once the user is inside the app (post-login).
   // Silently no-ops in Expo Go / without an EAS project.
   useEffect(() => { initNotifications(); }, []);
@@ -12,16 +16,16 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
       headerShown: false,
-      tabBarActiveTintColor: Colors.navActive,
-      tabBarInactiveTintColor: Colors.navInactive,
-      tabBarStyle: { backgroundColor: '#fff', borderTopColor: Colors.inputBorder, borderTopWidth: 0.5 },
+      tabBarActiveTintColor: colors.navActive,
+      tabBarInactiveTintColor: colors.navInactive,
+      tabBarStyle: { backgroundColor: colors.cardSurface, borderTopColor: colors.inputBorder, borderTopWidth: 0.5 },
       tabBarLabelStyle: { fontSize: 10 },
     }}>
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="learn" options={{ title: 'Learn', tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="resources" options={{ title: 'Resources', tabBarIcon: ({ color, size }) => <Ionicons name="library-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="forum" options={{ title: 'Forum', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="index" options={{ title: t('home'), tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="learn" options={{ title: t('learn'), tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="resources" options={{ title: t('resources'), tabBarIcon: ({ color, size }) => <Ionicons name="library-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="forum" options={{ title: t('forum'), tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" color={color} size={size} /> }} />
+      <Tabs.Screen name="profile" options={{ title: t('profile'), tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
     </Tabs>
   );
 }

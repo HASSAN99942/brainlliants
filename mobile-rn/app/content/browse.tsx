@@ -1,20 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../src/core/constants/colors';
+import { useTheme } from '../../src/core/theme';
 import { contentApi, BrowseSpecialty, Paper } from '../../src/features/content/api';
 import { EXAM_LABEL } from '../../src/features/content/labels';
 
 type Level = 'subsystem' | 'exam' | 'specialty' | 'year' | 'papers';
 
-const SUBSYSTEM_LABEL: Record<string, string> = {
-  anglophone: 'Anglophone',
-  francophone: 'Francophone',
-};
-
 export default function Browse() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [level, setLevel] = useState<Level>('subsystem');
   const [subsystem, setSubsystem] = useState<string | null>(null);
   const [exam, setExam] = useState<string | null>(null);
@@ -43,11 +43,11 @@ export default function Browse() {
       await load();
       if (mounted.current) setLevel(next);
     } catch {
-      if (mounted.current) setError('Could not load that list. Check your connection and try again.');
+      if (mounted.current) setError(t('content.loadError'));
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const goExam = (sub: string) => step('exam', async () => {
     setSubsystem(sub);
@@ -81,8 +81,9 @@ export default function Browse() {
     else router.back();
   };
 
+  // Anglophone/Francophone and exam names are proper nouns in both locales.
   const crumb = [
-    subsystem ? SUBSYSTEM_LABEL[subsystem] ?? subsystem : null,
+    subsystem ?? null,
     exam ? EXAM_LABEL[exam] ?? exam : null,
     specialty?.name,
     year,
@@ -92,25 +93,25 @@ export default function Browse() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.appbar}>
         <Pressable onPress={back} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>Browse papers</Text>
+        <Text style={styles.title}>{t('content.browseTitle')}</Text>
       </View>
 
       {crumb ? <Text style={styles.crumb}>{crumb}</Text> : null}
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={{ color: Colors.error, fontSize: 13 }}>{error}</Text>
+          <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
         </View>
       ) : null}
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />
+        <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : level === 'subsystem' ? (
         <View style={{ padding: 20, gap: 12 }}>
-          <PickRow label="Anglophone" sub="GCE, TVE, HND" onPress={() => goExam('anglophone')} />
-          <PickRow label="Francophone" sub="BEPC, Probatoire, BAC, BTS" onPress={() => goExam('francophone')} />
+          <PickRow colors={colors} label="Anglophone" sub="GCE, TVE, HND" onPress={() => goExam('anglophone')} />
+          <PickRow colors={colors} label="Francophone" sub="BEPC, Probatoire, BAC, BTS" onPress={() => goExam('francophone')} />
         </View>
       ) : level === 'exam' ? (
         <FlatList
@@ -123,9 +124,9 @@ export default function Browse() {
           keyExtractor={(e) => e}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={Gap}
-          ListEmptyComponent={<Empty label="No papers have been published for this subsystem yet" />}
+          ListEmptyComponent={<Empty colors={colors} label={t('content.emptySubsystem')} />}
           renderItem={({ item }) => (
-            <PickRow label={EXAM_LABEL[item] ?? item} onPress={() => goSpecialty(item)} />
+            <PickRow colors={colors} label={EXAM_LABEL[item] ?? item} onPress={() => goSpecialty(item)} />
           )}
         />
       ) : level === 'specialty' ? (
@@ -135,9 +136,10 @@ export default function Browse() {
           keyExtractor={(s) => s.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={Gap}
-          ListEmptyComponent={<Empty label="No specialties have papers for this exam yet" />}
+          ListEmptyComponent={<Empty colors={colors} label={t('content.emptySpecialties')} />}
           renderItem={({ item }) => (
             <PickRow
+              colors={colors}
               label={item.name}
               sub={[item.abbreviation, item.category].filter(Boolean).join(' · ')}
               onPress={() => goYear(item)}
@@ -152,7 +154,7 @@ export default function Browse() {
           numColumns={3}
           columnWrapperStyle={{ gap: 12, paddingHorizontal: 20 }}
           contentContainerStyle={{ paddingVertical: 20, gap: 12 }}
-          ListEmptyComponent={<Empty label="No dated papers for this specialty yet" />}
+          ListEmptyComponent={<Empty colors={colors} label={t('content.emptyYears')} />}
           renderItem={({ item }) => (
             <Pressable onPress={() => goPapers(item)} style={styles.yearChip}>
               <Text style={styles.yearText}>{item}</Text>
@@ -166,7 +168,7 @@ export default function Browse() {
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={Gap}
-          ListEmptyComponent={<Empty label="No papers for this selection" />}
+          ListEmptyComponent={<Empty colors={colors} label={t('content.emptyPapers')} />}
           renderItem={({ item }) => (
             <Pressable
               // RN-3's detail screen loads by id — it does not take a serialised paper.
@@ -174,12 +176,12 @@ export default function Browse() {
               style={styles.paperCard}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.textPrimary }}>{item.title}</Text>
-                <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 4 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>{item.title}</Text>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
                   {[item.subject, item.year].filter(Boolean).join(' · ')}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </Pressable>
           )}
         />
@@ -188,14 +190,14 @@ export default function Browse() {
   );
 }
 
-function PickRow({ label, sub, onPress }: { label: string; sub?: string; onPress: () => void }) {
+function PickRow({ label, sub, onPress, colors }: { label: string; sub?: string; onPress: () => void; colors: ThemeColors }) {
   return (
-    <Pressable onPress={onPress} style={styles.pickRow}>
+    <Pressable onPress={onPress} style={pickRowStyle(colors)}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: Colors.textPrimary }}>{label}</Text>
-        {sub ? <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>{label}</Text>
+        {sub ? <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
     </Pressable>
   );
 }
@@ -204,41 +206,42 @@ function Gap() {
   return <View style={{ height: 10 }} />;
 }
 
-function Empty({ label }: { label: string }) {
+function Empty({ label, colors }: { label: string; colors: ThemeColors }) {
   return (
-    <Text style={{ textAlign: 'center', color: Colors.textSecondary, marginTop: 40, paddingHorizontal: 32 }}>
+    <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, paddingHorizontal: 32 }}>
       {label}
     </Text>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
   appbar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface,
     paddingHorizontal: 16, paddingVertical: 12, gap: 12,
   },
-  title: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
+  title: { fontSize: 18, fontWeight: 'bold', color: c.textPrimary },
   crumb: {
-    fontSize: 13, color: Colors.primaryMid, paddingHorizontal: 20,
+    fontSize: 13, color: c.primaryMid, paddingHorizontal: 20,
     paddingVertical: 12, fontWeight: '500',
   },
   errorBox: {
-    backgroundColor: Colors.errorLight, borderRadius: 10,
+    backgroundColor: c.errorLight, borderRadius: 10,
     padding: 12, marginHorizontal: 20, marginBottom: 8,
   },
   list: { padding: 20 },
-  pickRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16,
-    borderWidth: 0.5, borderColor: Colors.inputBorder, padding: 18,
-  },
   yearChip: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5,
-    borderColor: Colors.inputBorder, paddingVertical: 20, alignItems: 'center',
+    flex: 1, backgroundColor: c.cardSurface, borderRadius: 12, borderWidth: 0.5,
+    borderColor: c.inputBorder, paddingVertical: 20, alignItems: 'center',
   },
-  yearText: { fontSize: 18, fontWeight: '700', color: Colors.primary },
+  yearText: { fontSize: 18, fontWeight: '700', color: c.primary },
   paperCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16,
-    borderWidth: 0.5, borderColor: Colors.inputBorder, padding: 16,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, borderRadius: 16,
+    borderWidth: 0.5, borderColor: c.inputBorder, padding: 16,
   },
+});
+
+const pickRowStyle = (c: ThemeColors) => ({
+  flexDirection: 'row' as const, alignItems: 'center' as const, backgroundColor: c.cardSurface, borderRadius: 16,
+  borderWidth: 0.5, borderColor: c.inputBorder, padding: 18,
 });

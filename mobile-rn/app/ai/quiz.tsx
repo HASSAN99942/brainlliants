@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../src/core/constants/colors';
+import { useTheme } from '../../src/core/theme';
 import { AppButton } from '../../src/shared/components/AppButton';
 import { useSaveQuizResult } from '../../src/features/ai/hooks';
 import { QuizQuestion } from '../../src/features/ai/api';
 
 export default function Quiz() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ questions: string; sessionId?: string }>();
   const questions: QuizQuestion[] = JSON.parse(params.questions ?? '[]');
   const sessionId = params.sessionId ?? null;
@@ -21,7 +26,13 @@ export default function Quiz() {
   const [finished, setFinished] = useState(false);
 
   if (questions.length === 0) {
-    return <SafeAreaView style={styles.safe}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: Colors.textSecondary }}>No questions.</Text></View></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.textSecondary }}>{t('ai.noQuestions')}</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   const q = questions[index];
@@ -45,14 +56,19 @@ export default function Quiz() {
     const passed = pct >= 60;
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.appbar}><Pressable onPress={() => router.back()}><Ionicons name="close" size={24} color={Colors.textPrimary} /></Pressable><Text style={styles.title}>Results</Text></View>
+        <View style={styles.appbar}>
+          <Pressable onPress={() => router.back()}><Ionicons name="close" size={24} color={colors.textPrimary} /></Pressable>
+          <Text style={styles.title}>{t('ai.results')}</Text>
+        </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <View style={[styles.scoreRing, { borderColor: passed ? Colors.success : Colors.action }]}>
-            <Text style={{ fontSize: 32, fontWeight: 'bold', color: Colors.textPrimary }}>{pct}%</Text>
-            <Text style={{ fontSize: 15, color: Colors.textSecondary }}>{score}/{questions.length}</Text>
+          <View style={[styles.scoreRing, { borderColor: passed ? colors.success : colors.action }]}>
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.textPrimary }}>{pct}%</Text>
+            <Text style={{ fontSize: 15, color: colors.textSecondary }}>{score}/{questions.length}</Text>
           </View>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.textPrimary, marginTop: 28 }}>{passed ? 'Well done!' : 'Keep practising!'}</Text>
-          <AppButton label="Back to summary" variant="secondary" onPress={() => router.back()} style={{ marginTop: 32, width: '100%' }} />
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginTop: 28 }}>
+            {passed ? t('ai.wellDone') : t('ai.keepPractising')}
+          </Text>
+          <AppButton label={t('ai.backToSummary')} variant="secondary" onPress={() => router.back()} style={{ marginTop: 32, width: '100%' }} />
         </View>
       </SafeAreaView>
     );
@@ -60,21 +76,24 @@ export default function Quiz() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.appbar}><Pressable onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={Colors.textPrimary} /></Pressable><Text style={styles.title}>Quiz</Text></View>
+      <View style={styles.appbar}>
+        <Pressable onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.textPrimary} /></Pressable>
+        <Text style={styles.title}>{t('ai.quizTitle')}</Text>
+      </View>
       <View style={styles.progressRow}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ fontSize: 13, color: Colors.textSecondary }}>Question {index + 1} of {questions.length}</Text>
-          <Text style={{ fontSize: 13, color: Colors.textSecondary }}>Score {score}</Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary }}>{t('ai.questionOf', { current: index + 1, total: questions.length })}</Text>
+          <Text style={{ fontSize: 13, color: colors.textSecondary }}>{t('ai.score', { score })}</Text>
         </View>
         <View style={styles.track}><View style={[styles.fill, { width: `${((index + 1) / questions.length) * 100}%` }]} /></View>
       </View>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={{ fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, lineHeight: 30, marginBottom: 28 }}>{q.question}</Text>
+        <Text style={{ fontSize: 22, fontWeight: 'bold', color: colors.textPrimary, lineHeight: 30, marginBottom: 28 }}>{q.question}</Text>
         {q.options.map((opt, i) => {
-          let bg: string = '#fff', border: string = Colors.inputBorder, fg: string = Colors.textPrimary, bw = 0.5;
+          let bg: string = colors.cardSurface, border: string = colors.inputBorder, fg: string = colors.textPrimary, bw = 0.5;
           if (answered) {
-            if (i === q.correct_option) { bg = Colors.successLight; border = Colors.success; fg = Colors.success; bw = 1.5; }
-            else if (i === selected) { bg = Colors.errorLight; border = Colors.error; fg = Colors.error; bw = 1.5; }
+            if (i === q.correct_option) { bg = colors.successLight; border = colors.success; fg = colors.success; bw = 1.5; }
+            else if (i === selected) { bg = colors.errorLight; border = colors.error; fg = colors.error; bw = 1.5; }
           }
           return (
             <Pressable key={i} onPress={() => choose(i)} style={[styles.option, { backgroundColor: bg, borderColor: border, borderWidth: bw }]}>
@@ -83,23 +102,25 @@ export default function Quiz() {
           );
         })}
         {answered && q.explanation ? (
-          <View style={[styles.explain, { backgroundColor: isCorrect ? Colors.successLight : Colors.errorLight }]}>
-            <Text style={{ fontSize: 13, color: Colors.textPrimary, lineHeight: 20 }}>{q.explanation}</Text>
+          <View style={[styles.explain, { backgroundColor: isCorrect ? colors.successLight : colors.errorLight }]}>
+            <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 20 }}>{q.explanation}</Text>
           </View>
         ) : null}
-        {answered ? <AppButton label={index >= questions.length - 1 ? 'See results' : 'Next question'} onPress={next} style={{ marginTop: 24 }} /> : null}
+        {answered ? (
+          <AppButton label={index >= questions.length - 1 ? t('ai.seeResults') : t('ai.nextQuestion')} onPress={next} style={{ marginTop: 24 }} />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bg },
-  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  title: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
-  progressRow: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 14 },
-  track: { height: 3, backgroundColor: Colors.inputBorder, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
-  fill: { height: 3, backgroundColor: Colors.primary },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg },
+  appbar: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardSurface, paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  title: { fontSize: 18, fontWeight: 'bold', color: c.textPrimary },
+  progressRow: { backgroundColor: c.cardSurface, paddingHorizontal: 20, paddingVertical: 14 },
+  track: { height: 3, backgroundColor: c.inputBorder, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
+  fill: { height: 3, backgroundColor: c.primary },
   option: { borderRadius: 16, padding: 18, marginBottom: 12 },
   explain: { borderRadius: 12, padding: 14, marginTop: 8 },
   scoreRing: { width: 140, height: 140, borderRadius: 70, borderWidth: 10, alignItems: 'center', justifyContent: 'center' },

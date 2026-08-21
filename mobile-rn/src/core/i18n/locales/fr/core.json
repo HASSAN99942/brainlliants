@@ -1,0 +1,37 @@
+{
+  "appName": "Brailliants",
+  "tagline": "Apprenez partout. Sans internet.",
+  "home": "Accueil", "learn": "Apprendre", "resources": "Ressources", "forum": "Forum", "profile": "Profil",
+  "login": "Se connecter", "register": "Créer un compte", "email": "Email", "password": "Mot de passe",
+  "retry": "Réessayer", "loading": "Chargement...", "noContent": "Rien ici pour l'instant.", "error": "Une erreur s'est produite.",
+  "student": "Élève",
+  "stats": { "streak": "Série", "quizzes": "Quiz", "hours": "Heures" },
+  "plan": {
+    "pro": "Membre Pro",
+    "free": "Plan gratuit",
+    "proSubtitle": "IA et téléchargements illimités",
+    "freeSubtitle": "Fonctions limitées",
+    "upgrade": "Passer Pro"
+  },
+  "settings": {
+    "mySchools": "Mes écoles",
+    "bookmarks": "Favoris",
+    "timetable": "Emploi du temps",
+    "progress": "Progression",
+    "language": "Langue",
+    "darkMode": "Mode sombre",
+    "logout": "Déconnexion"
+  },
+  "specialty": {
+    "label": "Spécialité",
+    "placeholder": "Choisissez votre spécialité",
+    "disabledHint": "Choisissez d'abord le système et l'examen",
+    "typePlaceholder": "Saisissez votre spécialité",
+    "sheetTitle": "Choisir une spécialité",
+    "loadError": "Impossible de charger la liste des spécialités. Vous pouvez choisir « Autre » et la saisir.",
+    "emptyHint": "Aucune spécialité n'est encore listée pour cet examen — choisissez « Autre » et saisissez la vôtre.",
+    "generalTag": "générale",
+    "other": "Autre",
+    "otherLong": "Autre (saisir ma spécialité)"
+  }
+}

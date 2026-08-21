@@ -156,8 +156,12 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    # Rotation is OFF: the mobile client stores the original refresh token and
+    # never swaps in the rotated one (mobile-rn/src/core/network/apiClient.ts
+    # keeps `currentRefresh`), so with rotation+blacklisting the SECOND refresh
+    # would fail against the now-blacklisted token and force a re-login.
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 

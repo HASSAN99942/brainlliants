@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, FlatList, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../core/constants/colors';
+import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../core/constants/colors';
+import { useTheme } from '../../core/theme';
 import { useSpecialties } from '../../features/catalogue/hooks';
 import { Specialty } from '../../features/catalogue/api';
 
@@ -22,6 +24,9 @@ type Row =
   | { kind: 'option'; key: string; specialty: Specialty };
 
 export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { data: specialties, isLoading, isError } = useSpecialties(subsystem, exam);
 
   const [open, setOpen] = useState(false);
@@ -74,40 +79,40 @@ export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
   const chooseOther = () => {
     setOpen(false);
     setIsOther(true);
-    setSelectedLabel('Other');
+    setSelectedLabel(t('specialty.other'));
     // Name stays whatever is typed in the revealed field below.
     onChange({ specialtyId: null, specialtyName: otherText });
   };
 
   return (
     <View>
-      <Text style={styles.label}>Specialty</Text>
+      <Text style={styles.label}>{t('specialty.label')}</Text>
 
       <Pressable
         onPress={() => !disabled && setOpen(true)}
         style={[styles.field, disabled && { opacity: 0.5 }]}
       >
         <Text
-          style={{ flex: 1, fontSize: 15, color: selectedLabel ? Colors.textPrimary : Colors.textMuted }}
+          style={{ flex: 1, fontSize: 15, color: selectedLabel ? colors.textPrimary : colors.textMuted }}
           numberOfLines={1}
         >
           {disabled
-            ? 'Choose subsystem & exam first'
-            : selectedLabel ?? 'Select your specialty'}
+            ? t('specialty.disabledHint')
+            : selectedLabel ?? t('specialty.placeholder')}
         </Text>
-        <Ionicons name="chevron-down" size={18} color={Colors.textMuted} />
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </Pressable>
 
       {isOther ? (
         <TextInput
           value={otherText}
-          onChangeText={(t) => {
-            setOtherText(t);
-            onChange({ specialtyId: null, specialtyName: t });
+          onChangeText={(txt) => {
+            setOtherText(txt);
+            onChange({ specialtyId: null, specialtyName: txt });
           }}
           autoFocus
-          placeholder="Type your specialty"
-          placeholderTextColor={Colors.textMuted}
+          placeholder={t('specialty.typePlaceholder')}
+          placeholderTextColor={colors.textMuted}
           style={styles.otherInput}
         />
       ) : null}
@@ -115,11 +120,11 @@ export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
       <Modal transparent visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
         <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Select specialty</Text>
+          <Text style={styles.sheetTitle}>{t('specialty.sheetTitle')}</Text>
 
           {isLoading ? (
             <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={colors.primary} />
             </View>
           ) : (
             <FlatList
@@ -129,11 +134,11 @@ export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
               ListHeaderComponent={
                 isError ? (
                   <Text style={styles.hint}>
-                    Could not load the specialty list. You can still choose Other and type it.
+                    {t('specialty.loadError')}
                   </Text>
                 ) : rows.length === 0 ? (
                   <Text style={styles.hint}>
-                    No specialties are listed for this exam yet — choose Other and type yours.
+                    {t('specialty.emptyHint')}
                   </Text>
                 ) : null
               }
@@ -144,17 +149,17 @@ export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
                 const s = item.specialty;
                 return (
                   <Pressable onPress={() => chooseSpecialty(s)} style={styles.option}>
-                    <Text style={{ flex: 1, fontSize: 15, color: Colors.textPrimary }}>
+                    <Text style={{ flex: 1, fontSize: 15, color: colors.textPrimary }}>
                       {s.name} ({s.abbreviation})
                     </Text>
-                    {s.is_general ? <Text style={styles.generalTag}>general</Text> : null}
+                    {s.is_general ? <Text style={styles.generalTag}>{t('specialty.generalTag')}</Text> : null}
                   </Pressable>
                 );
               }}
               ListFooterComponent={
                 <Pressable onPress={chooseOther} style={[styles.option, { borderBottomWidth: 0 }]}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.primaryMid }}>
-                    Other (type my specialty)
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: colors.primaryMid }}>
+                    {t('specialty.otherLong')}
                   </Text>
                 </Pressable>
               }
@@ -166,34 +171,34 @@ export function SpecialtyPicker({ subsystem, exam, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, marginTop: 14 },
+const createStyles = (c: ThemeColors) => StyleSheet.create({
+  label: { fontSize: 13, color: c.textSecondary, marginBottom: 6, marginTop: 14 },
   field: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: Colors.inputBorder,
+    backgroundColor: c.cardSurface, borderRadius: 12, borderWidth: 0.5, borderColor: c.inputBorder,
     paddingHorizontal: 16, paddingVertical: 14,
   },
   otherInput: {
-    backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: Colors.inputBorder,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, marginTop: 10,
+    backgroundColor: c.cardSurface, borderRadius: 12, borderWidth: 0.5, borderColor: c.inputBorder,
+    paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: c.textPrimary, marginTop: 10,
   },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: c.cardSurface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 20, paddingBottom: 32,
   },
-  sheetTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary, marginBottom: 12 },
-  hint: { fontSize: 13, color: Colors.textSecondary, paddingVertical: 12, lineHeight: 19 },
+  sheetTitle: { fontSize: 18, fontWeight: 'bold', color: c.textPrimary, marginBottom: 12 },
+  hint: { fontSize: 13, color: c.textSecondary, paddingVertical: 12, lineHeight: 19 },
   sectionHeader: {
-    fontSize: 12, fontWeight: '700', color: Colors.primaryMid, letterSpacing: 0.4,
+    fontSize: 12, fontWeight: '700', color: c.primaryMid, letterSpacing: 0.4,
     textTransform: 'uppercase', paddingTop: 16, paddingBottom: 6,
   },
   option: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.inputBorder,
+    paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: c.inputBorder,
   },
   generalTag: {
-    fontSize: 11, color: Colors.primaryMid, backgroundColor: Colors.primaryLight,
+    fontSize: 11, color: c.primaryMid, backgroundColor: c.primaryLight,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginLeft: 8,
   },
 });

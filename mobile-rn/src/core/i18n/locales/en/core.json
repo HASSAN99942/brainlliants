@@ -1,0 +1,37 @@
+{
+  "appName": "Brailliants",
+  "tagline": "Learn anywhere. No internet required.",
+  "home": "Home", "learn": "Learn", "resources": "Resources", "forum": "Forum", "profile": "Profile",
+  "login": "Log in", "register": "Create account", "email": "Email", "password": "Password",
+  "retry": "Try again", "loading": "Loading...", "noContent": "Nothing here yet.", "error": "Something went wrong.",
+  "student": "Student",
+  "stats": { "streak": "Streak", "quizzes": "Quizzes", "hours": "Hours" },
+  "plan": {
+    "pro": "Pro Member",
+    "free": "Free Plan",
+    "proSubtitle": "Unlimited AI & downloads",
+    "freeSubtitle": "Limited features",
+    "upgrade": "Upgrade"
+  },
+  "settings": {
+    "mySchools": "My Schools",
+    "bookmarks": "Bookmarks",
+    "timetable": "Timetable",
+    "progress": "Progress",
+    "language": "Language",
+    "darkMode": "Dark mode",
+    "logout": "Logout"
+  },
+  "specialty": {
+    "label": "Specialty",
+    "placeholder": "Select your specialty",
+    "disabledHint": "Choose subsystem & exam first",
+    "typePlaceholder": "Type your specialty",
+    "sheetTitle": "Select specialty",
+    "loadError": "Could not load the specialty list. You can still choose Other and type it.",
+    "emptyHint": "No specialties are listed for this exam yet — choose Other and type yours.",
+    "generalTag": "general",
+    "other": "Other",
+    "otherLong": "Other (type my specialty)"
+  }
+}
